@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: 0db2d7fec50214a32a234161b8f97333
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - pickupConfig: {instanceID: 0}
+  - pickupCollider: {instanceID: 0}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 65867f5035f7c4b59807a14ae6e7b566, type: 3}
+  m_Name: EnemyConfig
+  m_EditorClassIdentifier: Assembly-CSharp::EnemyConfig
+  enemyHp: 3
+  enemyMoveSpeed: 2.2
+  enemyContactDamage: 10
+  enemyDamageCooldown: 0.6
+  spawnInterval: 1.2
+  minSpawnDistance: 1.5
+  maxSpawnDistance: 4
+  spawnBlockingMask:
+    serializedVersion: 2
+    m_Bits: 0
+  spawnClearanceRadius: 0.8
