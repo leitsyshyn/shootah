@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 65867f5035f7c4b59807a14ae6e7b566, type: 3}
   m_Name: EnemyConfig
   m_EditorClassIdentifier: Assembly-CSharp::EnemyConfig
-  enemyHp: 3
-  enemyMoveSpeed: 2.2
+  enemyHp: 2
+  enemyMoveSpeed: 3
   enemyContactDamage: 10
   enemyDamageCooldown: 0.6
   spawnInterval: 1.2

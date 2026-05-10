@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: RunConfig
   m_EditorClassIdentifier: Assembly-CSharp::RunConfig
   targetFrameRate: 120
-  targetSurvivalDuration: 60
+  targetSurvivalDuration: 100

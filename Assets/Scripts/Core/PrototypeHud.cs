@@ -11,6 +11,7 @@ public sealed class PrototypeHud : MonoBehaviour
     [SerializeField] private Text timerText;
     [SerializeField] private Text upgradeText;
     [SerializeField] private Text stateText;
+    [SerializeField] private Button mainMenuButton;
 
     private PlayerHealth playerHealth;
     private PlayerWeapon playerWeapon;
@@ -19,9 +20,13 @@ public sealed class PrototypeHud : MonoBehaviour
     public void BindSession(PlayerHealth health, PlayerWeapon weapon, SurvivalArenaGame owner)
     {
         Unsubscribe();
+        UnbindButtons();
+
         playerHealth = health;
         playerWeapon = weapon;
         game = owner;
+
+        BindButtons();
         Subscribe();
         Refresh();
     }
@@ -68,15 +73,37 @@ public sealed class PrototypeHud : MonoBehaviour
         }
     }
 
+    private void BindButtons()
+    {
+        if (mainMenuButton == null)
+        {
+            return;
+        }
+
+        mainMenuButton.onClick.RemoveListener(HandleMainMenuClicked);
+        mainMenuButton.onClick.AddListener(HandleMainMenuClicked);
+    }
+
+    private void UnbindButtons()
+    {
+        if (mainMenuButton == null)
+        {
+            return;
+        }
+
+        mainMenuButton.onClick.RemoveListener(HandleMainMenuClicked);
+    }
+
     private void OnDestroy()
     {
+        UnbindButtons();
         Unsubscribe();
     }
 
     private void Refresh()
     {
         hpText.text = $"HP: {playerHealth.CurrentHp}/{playerHealth.MaxHp}";
-        ammoText.text = $"Ammo: {playerWeapon.Ammo}/{playerWeapon.MagazineSize}";
+        ammoText.text = $"{playerWeapon.WeaponDisplayName}: {playerWeapon.Ammo}/{playerWeapon.MagazineSize}";
         reloadText.text = playerWeapon.IsReloading ? "Reload: Reloading" : "Reload: Ready";
         pointsText.text = $"Points: {game.RunPoints}";
         progressionText.text = $"Next Upgrade: {game.CurrentUpgradeProgress}/{game.PointsPerUpgrade}";
@@ -85,12 +112,12 @@ public sealed class PrototypeHud : MonoBehaviour
 
         if (game.HasWon)
         {
-            stateText.text = "VICTORY\nPress R to Restart";
+            stateText.text = "VICTORY\nPress R to Restart or use Main Menu";
             stateText.color = new Color(0.35f, 1f, 0.45f);
         }
         else if (game.HasLost)
         {
-            stateText.text = "DEFEATED\nPress R to Restart";
+            stateText.text = "DEFEATED\nPress R to Restart or use Main Menu";
             stateText.color = new Color(1f, 0.25f, 0.2f);
         }
         else
@@ -98,6 +125,16 @@ public sealed class PrototypeHud : MonoBehaviour
             stateText.text = string.Empty;
             stateText.color = Color.white;
         }
+    }
+
+    private void HandleMainMenuClicked()
+    {
+        if (game == null)
+        {
+            return;
+        }
+
+        game.ReturnToMainMenu();
     }
 
     private static string FormatTime(float timeSeconds)

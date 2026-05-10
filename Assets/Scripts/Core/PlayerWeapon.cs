@@ -13,6 +13,7 @@ public sealed class PlayerWeapon : MonoBehaviour
 
     private SurvivalArenaGame game;
     private Transform projectileParent;
+    private Projectile resolvedProjectilePrefab;
     private int baseMagazineSize;
     private int bonusMagazineSize;
     private float baseFireCooldown;
@@ -22,6 +23,11 @@ public sealed class PlayerWeapon : MonoBehaviour
     private int baseProjectileDamage;
     private int bonusProjectileDamage;
     private float projectileLifetime;
+    private int pelletsPerShot;
+    private float spreadAngle;
+    private bool isExplosive;
+    private float explosionRadius;
+    private int baseExplosionDamage;
     private float nextShotTime;
     private Coroutine reloadRoutine;
     private bool fireHeld;
@@ -30,6 +36,8 @@ public sealed class PlayerWeapon : MonoBehaviour
     public int MagazineSize => baseMagazineSize + bonusMagazineSize;
     public float FireCooldown => Mathf.Max(MinFireCooldown, baseFireCooldown - fireCooldownBonus);
     public int ProjectileDamage => baseProjectileDamage + bonusProjectileDamage;
+    public int ExplosionDamage => baseExplosionDamage + bonusProjectileDamage;
+    public string WeaponDisplayName => weaponConfig != null ? weaponConfig.DisplayName : "Weapon";
     public bool IsReloading { get; private set; }
 
     public event Action Changed;
@@ -63,6 +71,25 @@ public sealed class PlayerWeapon : MonoBehaviour
 
     private void ApplyWeaponConfig()
     {
+        if (weaponConfig == null)
+        {
+            Debug.LogError("PlayerWeapon requires a weapon config.", this);
+            baseMagazineSize = 1;
+            baseFireCooldown = MinFireCooldown;
+            reloadDuration = 0f;
+            projectileSpeed = 0f;
+            baseProjectileDamage = 0;
+            projectileLifetime = 0f;
+            pelletsPerShot = 1;
+            spreadAngle = 0f;
+            isExplosive = false;
+            explosionRadius = 0f;
+            baseExplosionDamage = 0;
+            resolvedProjectilePrefab = projectilePrefab != null ? projectilePrefab.GetComponent<Projectile>() : null;
+            ResetRuntimeState();
+            return;
+        }
+
         baseMagazineSize = weaponConfig.MagazineSize;
         bonusMagazineSize = 0;
         baseFireCooldown = Mathf.Max(MinFireCooldown, weaponConfig.FireCooldown);
@@ -72,6 +99,14 @@ public sealed class PlayerWeapon : MonoBehaviour
         baseProjectileDamage = weaponConfig.BulletDamage;
         bonusProjectileDamage = 0;
         projectileLifetime = weaponConfig.BulletLifetime;
+        pelletsPerShot = weaponConfig.PelletCount;
+        spreadAngle = weaponConfig.SpreadAngle;
+        isExplosive = weaponConfig.IsExplosive;
+        explosionRadius = weaponConfig.ExplosionRadius;
+        baseExplosionDamage = weaponConfig.ExplosionDamage;
+        resolvedProjectilePrefab = weaponConfig.ProjectilePrefab != null
+            ? weaponConfig.ProjectilePrefab
+            : projectilePrefab != null ? projectilePrefab.GetComponent<Projectile>() : null;
         ResetRuntimeState();
     }
 
@@ -145,14 +180,14 @@ public sealed class PlayerWeapon : MonoBehaviour
 
     private void TryShoot()
     {
-        if (IsReloading || Ammo <= 0)
+        if (IsReloading || Ammo <= 0 || projectileSpawnPoint == null || resolvedProjectilePrefab == null)
         {
             return;
         }
 
         Ammo--;
         nextShotTime = Time.time + FireCooldown;
-        SpawnProjectile();
+        SpawnProjectiles();
         Changed?.Invoke();
 
         if (Ammo <= 0)
@@ -171,11 +206,42 @@ public sealed class PlayerWeapon : MonoBehaviour
         reloadRoutine = StartCoroutine(ReloadRoutine());
     }
 
-    private void SpawnProjectile()
+    private void SpawnProjectiles()
     {
-        Vector2 direction = projectileSpawnPoint.right;
-        GameObject projectileObject = Instantiate(projectilePrefab, projectileSpawnPoint.position, projectileSpawnPoint.rotation, projectileParent);
-        projectileObject.GetComponent<Projectile>().Launch(game, direction, projectileSpeed, ProjectileDamage, projectileLifetime);
+        Projectile.LaunchData launchData = new Projectile.LaunchData(
+            projectileSpeed,
+            ProjectileDamage,
+            projectileLifetime,
+            isExplosive,
+            explosionRadius,
+            ExplosionDamage);
+
+        int shotCount = Mathf.Max(1, pelletsPerShot);
+        float baseAngle = projectileSpawnPoint.eulerAngles.z;
+        for (int i = 0; i < shotCount; i++)
+        {
+            float angleOffset = GetShotAngleOffset(i, shotCount);
+            Quaternion rotation = Quaternion.Euler(0f, 0f, baseAngle + angleOffset);
+            Vector2 direction = rotation * Vector2.right;
+            Projectile projectileInstance = Instantiate(resolvedProjectilePrefab, projectileSpawnPoint.position, rotation, projectileParent);
+            projectileInstance.Launch(game, direction, launchData);
+        }
+    }
+
+    private float GetShotAngleOffset(int pelletIndex, int shotCount)
+    {
+        if (spreadAngle <= 0f)
+        {
+            return 0f;
+        }
+
+        if (shotCount <= 1)
+        {
+            return UnityEngine.Random.Range(-spreadAngle * 0.5f, spreadAngle * 0.5f);
+        }
+
+        float t = shotCount == 1 ? 0.5f : pelletIndex / (float)(shotCount - 1);
+        return Mathf.Lerp(-spreadAngle * 0.5f, spreadAngle * 0.5f, t);
     }
 
     private IEnumerator ReloadRoutine()

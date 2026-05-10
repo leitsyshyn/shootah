@@ -89,9 +89,10 @@ public sealed class SurvivalArenaGame : MonoBehaviour
         restartAction = null;
     }
 
-    private void Update()
+private void Update()
     {
         HandleRunTimer();
+        HandleReturnToMainMenuRequested();
     }
 
     private void ConfigureRuntimeTiming()
@@ -131,6 +132,26 @@ public sealed class SurvivalArenaGame : MonoBehaviour
         hudInstance = Instantiate(hudPrefab);
         hudInstance.BindSession(playerHealth, playerWeapon, this);
     }
+
+public void ReturnToMainMenu()
+    {
+        SceneManager.LoadScene("MainMenu");
+    }
+
+private void HandleReturnToMainMenuRequested()
+    {
+        if (Keyboard.current == null)
+        {
+            return;
+        }
+
+        if (Keyboard.current.escapeKey.wasPressedThisFrame)
+        {
+            ReturnToMainMenu();
+        }
+    }
+
+
 
     public void AddRunPoints(int amount)
     {

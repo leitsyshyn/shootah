@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d79f2d52fac344ac9a04e40ece39ce2f, type: 3}
-  m_Name: WeaponConfig
+  m_Name: SniperRifleWeapon
   m_EditorClassIdentifier: Assembly-CSharp::WeaponConfig
-  displayName: Prototype Rifle
+  displayName: Sniper Rifle
   projectilePrefab: {fileID: 1186097014825071417, guid: c5326178b41b647a5a7767951a7d05da, type: 3}
-  magazineSize: 12
-  fireCooldown: 0.18
-  reloadDuration: 1.4
-  bulletSpeed: 14
-  bulletDamage: 1
-  bulletLifetime: 2
+  magazineSize: 4
+  fireCooldown: 0.95
+  reloadDuration: 1.75
+  bulletSpeed: 28
+  bulletDamage: 4
+  bulletLifetime: 2.4
   pelletCount: 1
-  spreadAngle: 0
+  spreadAngle: 0.5
   explosive: 0
   explosionRadius: 0
   explosionDamage: 0
