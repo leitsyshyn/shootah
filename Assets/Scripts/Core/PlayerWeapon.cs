@@ -18,8 +18,10 @@ public sealed class PlayerWeapon : MonoBehaviour
     private int bonusMagazineSize;
     private float baseFireCooldown;
     private float fireCooldownBonus;
-    private float reloadDuration;
-    private float projectileSpeed;
+    private float baseReloadDuration;
+    private float reloadDurationBonus;
+    private float baseProjectileSpeed;
+    private float projectileSpeedBonus;
     private int baseProjectileDamage;
     private int bonusProjectileDamage;
     private float projectileLifetime;
@@ -28,6 +30,7 @@ public sealed class PlayerWeapon : MonoBehaviour
     private bool isExplosive;
     private float explosionRadius;
     private int baseExplosionDamage;
+    private int pierceCount;
     private float nextShotTime;
     private Coroutine reloadRoutine;
     private bool fireHeld;
@@ -35,6 +38,8 @@ public sealed class PlayerWeapon : MonoBehaviour
     public int Ammo { get; private set; }
     public int MagazineSize => baseMagazineSize + bonusMagazineSize;
     public float FireCooldown => Mathf.Max(MinFireCooldown, baseFireCooldown - fireCooldownBonus);
+    public float ReloadDuration => Mathf.Max(0.1f, baseReloadDuration - reloadDurationBonus);
+    public float ProjectileSpeed => Mathf.Max(0f, baseProjectileSpeed + projectileSpeedBonus);
     public int ProjectileDamage => baseProjectileDamage + bonusProjectileDamage;
     public int ExplosionDamage => baseExplosionDamage + bonusProjectileDamage;
     public string WeaponDisplayName => weaponConfig != null ? weaponConfig.DisplayName : "Weapon";
@@ -76,8 +81,10 @@ public sealed class PlayerWeapon : MonoBehaviour
             Debug.LogError("PlayerWeapon requires a weapon config.", this);
             baseMagazineSize = 1;
             baseFireCooldown = MinFireCooldown;
-            reloadDuration = 0f;
-            projectileSpeed = 0f;
+            baseReloadDuration = 0f;
+            reloadDurationBonus = 0f;
+            baseProjectileSpeed = 0f;
+            projectileSpeedBonus = 0f;
             baseProjectileDamage = 0;
             projectileLifetime = 0f;
             pelletsPerShot = 1;
@@ -85,6 +92,7 @@ public sealed class PlayerWeapon : MonoBehaviour
             isExplosive = false;
             explosionRadius = 0f;
             baseExplosionDamage = 0;
+            pierceCount = 0;
             resolvedProjectilePrefab = projectilePrefab != null ? projectilePrefab.GetComponent<Projectile>() : null;
             ResetRuntimeState();
             return;
@@ -94,8 +102,10 @@ public sealed class PlayerWeapon : MonoBehaviour
         bonusMagazineSize = 0;
         baseFireCooldown = Mathf.Max(MinFireCooldown, weaponConfig.FireCooldown);
         fireCooldownBonus = 0f;
-        reloadDuration = weaponConfig.ReloadDuration;
-        projectileSpeed = weaponConfig.BulletSpeed;
+        baseReloadDuration = weaponConfig.ReloadDuration;
+        reloadDurationBonus = 0f;
+        baseProjectileSpeed = weaponConfig.BulletSpeed;
+        projectileSpeedBonus = 0f;
         baseProjectileDamage = weaponConfig.BulletDamage;
         bonusProjectileDamage = 0;
         projectileLifetime = weaponConfig.BulletLifetime;
@@ -104,10 +114,22 @@ public sealed class PlayerWeapon : MonoBehaviour
         isExplosive = weaponConfig.IsExplosive;
         explosionRadius = weaponConfig.ExplosionRadius;
         baseExplosionDamage = weaponConfig.ExplosionDamage;
+        pierceCount = weaponConfig.PierceCount;
         resolvedProjectilePrefab = weaponConfig.ProjectilePrefab != null
             ? weaponConfig.ProjectilePrefab
             : projectilePrefab != null ? projectilePrefab.GetComponent<Projectile>() : null;
         ResetRuntimeState();
+    }
+
+    public void SetWeaponConfig(WeaponConfig newConfig)
+    {
+        if (newConfig == null || newConfig == weaponConfig)
+        {
+            return;
+        }
+
+        weaponConfig = newConfig;
+        ApplyWeaponConfig();
     }
 
     private void ResetRuntimeState()
@@ -146,6 +168,20 @@ public sealed class PlayerWeapon : MonoBehaviour
         Changed?.Invoke();
     }
 
+    public void AddReloadSpeedBonus(float reduction)
+    {
+        if (reduction <= 0f) return;
+        reloadDurationBonus += reduction;
+        Changed?.Invoke();
+    }
+
+    public void AddProjectileSpeedBonus(float amount)
+    {
+        if (amount <= 0f) return;
+        projectileSpeedBonus += amount;
+        Changed?.Invoke();
+    }
+
     private void Update()
     {
         if (game == null || !game.IsRunActive)
@@ -166,6 +202,14 @@ public sealed class PlayerWeapon : MonoBehaviour
 
         IsReloading = false;
         Changed?.Invoke();
+    }
+
+    public void TryResumeReload()
+    {
+        if (!IsReloading && reloadRoutine == null && Ammo < MagazineSize)
+        {
+            reloadRoutine = StartCoroutine(ReloadRoutine());
+        }
     }
 
     private void HandleShootIntent()
@@ -209,12 +253,13 @@ public sealed class PlayerWeapon : MonoBehaviour
     private void SpawnProjectiles()
     {
         Projectile.LaunchData launchData = new Projectile.LaunchData(
-            projectileSpeed,
+            ProjectileSpeed,
             ProjectileDamage,
             projectileLifetime,
             isExplosive,
             explosionRadius,
-            ExplosionDamage);
+            ExplosionDamage,
+            pierceCount);
 
         int shotCount = Mathf.Max(1, pelletsPerShot);
         float baseAngle = projectileSpawnPoint.eulerAngles.z;
@@ -253,7 +298,7 @@ public sealed class PlayerWeapon : MonoBehaviour
 
         IsReloading = true;
         Changed?.Invoke();
-        yield return new WaitForSeconds(reloadDuration);
+        yield return new WaitForSeconds(ReloadDuration);
 
         if (game == null || game.IsRunEnded)
         {

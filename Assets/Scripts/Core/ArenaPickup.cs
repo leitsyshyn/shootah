@@ -7,6 +7,7 @@ public sealed class ArenaPickup : MonoBehaviour
     [SerializeField] private PickupConfig pickupConfig;
 
     private CircleCollider2D pickupCollider;
+    private SpriteRenderer spriteRenderer;
     private SurvivalArenaGame game;
     private PlayerHealth playerHealth;
     private bool isCollected;
@@ -16,6 +17,7 @@ public sealed class ArenaPickup : MonoBehaviour
     private void Awake()
     {
         pickupCollider = GetComponent<CircleCollider2D>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
     }
 
     public void BeginSession(SurvivalArenaGame owner, PlayerHealth targetHealth)
@@ -24,11 +26,34 @@ public sealed class ArenaPickup : MonoBehaviour
         playerHealth = targetHealth;
         isCollected = false;
         pickupCollider.enabled = true;
+        if (spriteRenderer != null)
+        {
+            Color c = spriteRenderer.color;
+            c.a = 1f;
+            spriteRenderer.color = c;
+        }
+        transform.localScale = Vector3.one * 0.15f;
     }
 
     private void Update()
     {
-        if (isCollected || game == null || game.IsRunEnded || playerHealth == null || pickupType != PickupType.Points)
+        if (isCollected || game == null || game.IsRunEnded || playerHealth == null)
+        {
+            return;
+        }
+
+        if (pickupType == PickupType.Points)
+        {
+            float pulse = 1f + Mathf.Sin(Time.time * 4f) * 0.03f;
+            transform.localScale = Vector3.one * 0.15f * pulse;
+        }
+        else
+        {
+            float pulse = 1f + Mathf.Sin(Time.time * 3f) * 0.02f;
+            transform.localScale = Vector3.one * 0.15f * pulse;
+        }
+
+        if (pickupType != PickupType.Points)
         {
             return;
         }
@@ -66,9 +91,15 @@ public sealed class ArenaPickup : MonoBehaviour
         {
             case PickupType.Health:
                 playerHealth.Heal(GetConfiguredAmount());
+                if (GameEffects.Instance != null)
+                {
+                    GameEffects.Instance.HealFlash();
+                }
                 break;
             case PickupType.Points:
-                game.AddRunPoints(GetConfiguredAmount());
+                int pointAmount = GetConfiguredAmount();
+                PersistentProgressionService.Instance.AddPersistentCurrency(pointAmount);
+                game.AddRunPoints(pointAmount);
                 break;
         }
 

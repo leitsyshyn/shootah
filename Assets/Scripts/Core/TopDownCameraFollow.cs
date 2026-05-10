@@ -10,8 +10,10 @@ public sealed class TopDownCameraFollow : MonoBehaviour
     private Camera targetCamera;
     private Transform target;
     private float followSharpness;
+    private Vector3 shakeOffset;
 
     public Camera WorldCamera => targetCamera;
+    public Vector3 ShakeOffset { get => shakeOffset; set => shakeOffset = value; }
 
     private void Awake()
     {
@@ -55,7 +57,7 @@ public sealed class TopDownCameraFollow : MonoBehaviour
         }
 
         float interpolation = 1f - Mathf.Exp(-followSharpness * Time.deltaTime);
-        transform.position = Vector3.Lerp(transform.position, desiredPosition, interpolation);
+        transform.position = Vector3.Lerp(transform.position, desiredPosition, interpolation) + shakeOffset;
     }
 
     private void ApplyCameraConfig(Camera camera)

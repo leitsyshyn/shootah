@@ -169,3 +169,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8752ffdacfd5540358ec5a6ccb1b0105, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Projectile
+  hasDeceleration: 1
+  decelerationRate: 6
+  spawnFragmentsOnExplode: 1
+  fragmentCount: 30
+  fragmentSpeed: 8
+  fragmentDamage: 1
+  fragmentSpreadAngle: 360
+  fragmentScaleMultiplier: 0.7
+  fragmentPrefab: {fileID: 1186097014825071417, guid: c5326178b41b647a5a7767951a7d05da, type: 3}

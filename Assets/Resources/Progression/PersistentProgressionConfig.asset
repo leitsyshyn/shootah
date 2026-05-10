@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ffc4487dea36044b88261298224d8223, type: 3}
+  m_Name: PersistentProgressionConfig
+  m_EditorClassIdentifier: Assembly-CSharp::PersistentProgressionConfig
+  shopConfig: {fileID: 11400000, guid: 13e52e870a99e4d44b897737167ee5e4, type: 2}
+  permanentUpgrades:
+  - id: max_health
+    displayName: Max Health
+    affectedStat: 0
+    maxLevel: 5
+    baseCost: 10
+    costPerLevel: 10
+    valuePerLevel: 10
+  - id: move_speed
+    displayName: Move Speed
+    affectedStat: 1
+    maxLevel: 5
+    baseCost: 10
+    costPerLevel: 10
+    valuePerLevel: 0.35
+  weaponUnlocks:
+  - weaponId: machine_gun
+    displayName: Machine Gun
+    weaponConfig: {fileID: 11400000, guid: 3fd732aaa8e394f7aa805f17b336dc73, type: 2}
+    unlockCost: 0
+    defaultUnlocked: 1
+  - weaponId: shotgun
+    displayName: Shotgun
+    weaponConfig: {fileID: 11400000, guid: eb2e37a22d55e41e9a72f37702aca531, type: 2}
+    unlockCost: 30
+    defaultUnlocked: 0
+  - weaponId: sniper_rifle
+    displayName: Sniper Rifle
+    weaponConfig: {fileID: 11400000, guid: a8482636e87ef4390a13366ae2dfd930, type: 2}
+    unlockCost: 45
+    defaultUnlocked: 0
+  - weaponId: grenade_launcher
+    displayName: Grenade Launcher
+    weaponConfig: {fileID: 11400000, guid: 85c337223c9f64386b3d4469e42f1d42, type: 2}
+    unlockCost: 60
+    defaultUnlocked: 0
+  defaultSelectedWeapon: {fileID: 11400000, guid: 3fd732aaa8e394f7aa805f17b336dc73, type: 2}

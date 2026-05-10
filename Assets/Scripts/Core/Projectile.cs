@@ -5,7 +5,7 @@ public sealed class Projectile : MonoBehaviour
 {
     public readonly struct LaunchData
     {
-        public LaunchData(float speed, int damage, float lifetime, bool isExplosive, float explosionRadius, int explosionDamage)
+        public LaunchData(float speed, int damage, float lifetime, bool isExplosive, float explosionRadius, int explosionDamage, int pierceCount = 0)
         {
             Speed = speed;
             Damage = damage;
@@ -13,6 +13,7 @@ public sealed class Projectile : MonoBehaviour
             IsExplosive = isExplosive;
             ExplosionRadius = explosionRadius;
             ExplosionDamage = explosionDamage;
+            PierceCount = pierceCount;
         }
 
         public float Speed { get; }
@@ -21,6 +22,7 @@ public sealed class Projectile : MonoBehaviour
         public bool IsExplosive { get; }
         public float ExplosionRadius { get; }
         public int ExplosionDamage { get; }
+        public int PierceCount { get; }
     }
 
     private Rigidbody2D body;
@@ -35,6 +37,21 @@ public sealed class Projectile : MonoBehaviour
     private float remainingLifetime;
     private bool isStopped;
     private bool hasExploded;
+    private int pierceCount;
+    private int enemiesPierced;
+
+    [Header("Deceleration")]
+    [SerializeField] private bool hasDeceleration;
+    [SerializeField] private float decelerationRate;
+
+    [Header("Fragmentation")]
+    [SerializeField] private bool spawnFragmentsOnExplode;
+    [SerializeField] private int fragmentCount;
+    [SerializeField] private float fragmentSpeed;
+    [SerializeField] private int fragmentDamage;
+    [SerializeField] private float fragmentSpreadAngle;
+    [SerializeField] private float fragmentScaleMultiplier;
+    [SerializeField] private Projectile fragmentPrefab;
 
     private void Awake()
     {
@@ -51,6 +68,8 @@ public sealed class Projectile : MonoBehaviour
         explosionRadius = launchData.ExplosionRadius;
         explosionDamage = launchData.ExplosionDamage;
         remainingLifetime = launchData.Lifetime;
+        pierceCount = launchData.PierceCount;
+        enemiesPierced = 0;
         isStopped = false;
         hasExploded = false;
         transform.right = direction;
@@ -63,6 +82,11 @@ public sealed class Projectile : MonoBehaviour
         {
             StopBody();
             return;
+        }
+
+        if (hasDeceleration && speed > 0f)
+        {
+            speed = Mathf.Max(0f, speed - decelerationRate * Time.fixedDeltaTime);
         }
 
         body.MovePosition(body.position + direction * (speed * Time.fixedDeltaTime));
@@ -81,17 +105,21 @@ public sealed class Projectile : MonoBehaviour
             return;
         }
 
-        Enemy enemy = other.GetComponent<Enemy>();
-        if (enemy != null)
+        EnemyBase enemyBase = other.GetComponent<EnemyBase>();
+        if (enemyBase != null)
         {
             if (isExplosive)
             {
-                Explode(enemy);
+                Explode(enemyBase);
             }
             else
             {
-                enemy.TakeDamage(damage);
-                Destroy(gameObject);
+                enemyBase.TakeDamage(damage);
+                enemiesPierced++;
+                if (enemiesPierced > pierceCount)
+                {
+                    Destroy(gameObject);
+                }
             }
             return;
         }
@@ -131,7 +159,7 @@ public sealed class Projectile : MonoBehaviour
         Destroy(gameObject);
     }
 
-    private void Explode(Enemy directHitEnemy)
+    private void Explode(EnemyBase directHitEnemy)
     {
         if (hasExploded)
         {
@@ -151,13 +179,13 @@ public sealed class Projectile : MonoBehaviour
             Collider2D[] overlaps = Physics2D.OverlapCircleAll(transform.position, explosionRadius);
             foreach (Collider2D overlap in overlaps)
             {
-                Enemy enemy = overlap.GetComponent<Enemy>();
-                if (enemy == null || enemy == directHitEnemy)
+                EnemyBase enemyBase = overlap.GetComponent<EnemyBase>();
+                if (enemyBase == null || enemyBase == directHitEnemy)
                 {
                     continue;
                 }
 
-                enemy.TakeDamage(explosionDamage);
+                enemyBase.TakeDamage(explosionDamage);
             }
 
             if (directHitEnemy != null)
@@ -166,6 +194,42 @@ public sealed class Projectile : MonoBehaviour
             }
         }
 
+        if (spawnFragmentsOnExplode && fragmentPrefab != null && fragmentCount > 0)
+        {
+            SpawnFragments();
+        }
+
         Destroy(gameObject);
+    }
+
+    private void SpawnFragments()
+    {
+        float angleStep = fragmentSpreadAngle / fragmentCount;
+        float halfSpread = fragmentSpreadAngle * 0.5f;
+
+        for (int i = 0; i < fragmentCount; i++)
+        {
+            float baseAngle = Mathf.Lerp(-halfSpread, halfSpread, fragmentCount > 1 ? i / (float)(fragmentCount - 1) : 0.5f);
+            float jitter = UnityEngine.Random.Range(-angleStep * 0.4f, angleStep * 0.4f);
+            float angle = baseAngle + jitter;
+            Quaternion rotation = Quaternion.Euler(0f, 0f, angle);
+            Vector2 direction = rotation * Vector2.right;
+
+            Projectile fragment = Instantiate(fragmentPrefab, transform.position, rotation);
+            fragment.transform.localScale *= fragmentScaleMultiplier;
+
+            float fragmentLifetime = Mathf.Max(0.4f, remainingLifetime);
+
+            Projectile.LaunchData fragmentLaunchData = new Projectile.LaunchData(
+                fragmentSpeed,
+                fragmentDamage,
+                fragmentLifetime,
+                false,
+                0f,
+                0
+            );
+
+            fragment.Launch(game, direction, fragmentLaunchData);
+        }
     }
 }

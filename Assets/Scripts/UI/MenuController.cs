@@ -7,11 +7,14 @@ public sealed class MenuController : MonoBehaviour
     [Header("Panels")]
     [SerializeField] private GameObject mainMenuPanel;
     [SerializeField] private GameObject aboutPanel;
+    [SerializeField] private GameObject progressionPanel;
 
     [Header("Buttons")]
     [SerializeField] private Button playButton;
+    [SerializeField] private Button progressionButton;
     [SerializeField] private Button aboutButton;
-    [SerializeField] private Button backButton;
+    [SerializeField] private Button aboutBackButton;
+    [SerializeField] private Button progressionBackButton;
     [SerializeField] private Button exitButton;
 
     [Header("Navigation")]
@@ -35,12 +38,17 @@ public sealed class MenuController : MonoBehaviour
 
     public void ShowAbout()
     {
-        SetPanelState(showMainMenu: false);
+        SetPanelState(MenuScreen.About);
+    }
+
+    public void ShowProgression()
+    {
+        SetPanelState(MenuScreen.Progression);
     }
 
     public void ShowMainMenu()
     {
-        SetPanelState(showMainMenu: true);
+        SetPanelState(MenuScreen.MainMenu);
     }
 
     public void Exit()
@@ -55,30 +63,46 @@ public sealed class MenuController : MonoBehaviour
     private void BindButtons()
     {
         AddButtonListener(playButton, Play);
+        AddButtonListener(progressionButton, ShowProgression);
         AddButtonListener(aboutButton, ShowAbout);
-        AddButtonListener(backButton, ShowMainMenu);
+        AddButtonListener(aboutBackButton, ShowMainMenu);
+        AddButtonListener(progressionBackButton, ShowMainMenu);
         AddButtonListener(exitButton, Exit);
     }
 
     private void UnbindButtons()
     {
         RemoveButtonListener(playButton, Play);
+        RemoveButtonListener(progressionButton, ShowProgression);
         RemoveButtonListener(aboutButton, ShowAbout);
-        RemoveButtonListener(backButton, ShowMainMenu);
+        RemoveButtonListener(aboutBackButton, ShowMainMenu);
+        RemoveButtonListener(progressionBackButton, ShowMainMenu);
         RemoveButtonListener(exitButton, Exit);
     }
 
-    private void SetPanelState(bool showMainMenu)
+    private void SetPanelState(MenuScreen screen)
     {
         if (mainMenuPanel != null)
         {
-            mainMenuPanel.SetActive(showMainMenu);
+            mainMenuPanel.SetActive(screen == MenuScreen.MainMenu);
         }
 
         if (aboutPanel != null)
         {
-            aboutPanel.SetActive(!showMainMenu);
+            aboutPanel.SetActive(screen == MenuScreen.About);
         }
+
+        if (progressionPanel != null)
+        {
+            progressionPanel.SetActive(screen == MenuScreen.Progression);
+        }
+    }
+
+    private enum MenuScreen
+    {
+        MainMenu = 0,
+        About = 1,
+        Progression = 2
     }
 
     private static void AddButtonListener(Button button, UnityEngine.Events.UnityAction callback)

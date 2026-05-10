@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d9ba44bd1a18440f0953cb2e8587d456, type: 3}
+  m_Name: ProgressionShopConfig
+  m_EditorClassIdentifier: Assembly-CSharp::ProgressionShopConfig
+  upgradeCostMultiplier: 1
+  weaponUnlockCostMultiplier: 1
+  cheatCurrencyAmount: 95

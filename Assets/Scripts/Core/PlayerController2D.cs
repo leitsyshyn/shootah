@@ -9,12 +9,13 @@ public sealed class PlayerController2D : MonoBehaviour
     private Rigidbody2D body;
     private Camera aimCamera;
     private float baseMoveSpeed;
+    private float permanentMoveSpeedBonus;
     private float bonusMoveSpeed;
     private Vector2 moveInput;
     private Vector2 aimScreenPosition;
     private bool controlsEnabled = true;
 
-    public float MoveSpeed => baseMoveSpeed + bonusMoveSpeed;
+    public float MoveSpeed => baseMoveSpeed + permanentMoveSpeedBonus + bonusMoveSpeed;
 
     private void Awake()
     {
@@ -38,6 +39,11 @@ public sealed class PlayerController2D : MonoBehaviour
         }
 
         bonusMoveSpeed += amount;
+    }
+
+    public void SetPermanentMoveSpeedBonus(float amount)
+    {
+        permanentMoveSpeedBonus = Mathf.Max(0f, amount);
     }
 
     public bool BindWorldCamera(Camera worldCamera)
@@ -95,6 +101,12 @@ public sealed class PlayerController2D : MonoBehaviour
         body.linearVelocity = Vector2.zero;
     }
 
+    public void EnableControls()
+    {
+        controlsEnabled = true;
+        moveInput = Vector2.zero;
+    }
+
     private void MovePlayer()
     {
         body.linearVelocity = moveInput * MoveSpeed;
@@ -123,6 +135,7 @@ public sealed class PlayerController2D : MonoBehaviour
     private void ApplyAuthoringConfig()
     {
         baseMoveSpeed = playerConfig.MoveSpeed;
+        permanentMoveSpeedBonus = 0f;
         bonusMoveSpeed = 0f;
         controlsEnabled = true;
         ApplyAuthoringScale();

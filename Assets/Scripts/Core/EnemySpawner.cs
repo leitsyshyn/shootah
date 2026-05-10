@@ -2,10 +2,28 @@ using UnityEngine;
 
 public sealed class EnemySpawner : MonoBehaviour
 {
+    [System.Serializable]
+    private struct EnemySpawnEntry
+    {
+        public GameObject prefab;
+        public int weight;
+    }
+
+    [System.Serializable]
+    private struct DifficultyWave
+    {
+        public float startTime;
+        public float spawnInterval;
+        public int enemiesPerSpawn;
+        public int[] enemyTypeWeights;
+    }
+
     [SerializeField] private Camera arenaCamera;
     [SerializeField] private GameObject enemyPrefab;
     [SerializeField] private Transform enemyParent;
     [SerializeField] private EnemyConfig enemyConfig;
+    [SerializeField] private EnemySpawnEntry[] additionalEnemyPrefabs;
+    [SerializeField] private DifficultyWave[] difficultyWaves;
 
     private SurvivalArenaGame game;
     private Transform player;
@@ -19,6 +37,10 @@ public sealed class EnemySpawner : MonoBehaviour
     private float spawnClearanceRadius;
     private float nextSpawnTime;
     private bool isSpawning = true;
+    private int totalWeight;
+    private GameObject[] pooledPrefabs;
+    private int[] pooledWeights;
+    private int enemiesPerSpawn = 1;
 
     private void Awake()
     {
@@ -49,8 +71,40 @@ public sealed class EnemySpawner : MonoBehaviour
             return;
         }
 
+        ApplyCurrentWave();
         nextSpawnTime = Time.time + spawnInterval;
-        SpawnEnemy();
+
+        for (int i = 0; i < enemiesPerSpawn; i++)
+        {
+            SpawnEnemy();
+        }
+    }
+
+    private void ApplyCurrentWave()
+    {
+        float elapsed = game.ElapsedRunTime;
+
+        if (difficultyWaves == null || difficultyWaves.Length == 0)
+        {
+            spawnInterval = enemyConfig.SpawnInterval;
+            enemiesPerSpawn = 1;
+            BuildWeightedPool(null);
+            return;
+        }
+
+        DifficultyWave wave = difficultyWaves[0];
+        for (int i = difficultyWaves.Length - 1; i >= 0; i--)
+        {
+            if (elapsed >= difficultyWaves[i].startTime)
+            {
+                wave = difficultyWaves[i];
+                break;
+            }
+        }
+
+        spawnInterval = Mathf.Max(0.01f, wave.spawnInterval);
+        enemiesPerSpawn = Mathf.Max(1, wave.enemiesPerSpawn);
+        BuildWeightedPool(wave.enemyTypeWeights);
     }
 
     public void StopSpawning()
@@ -58,18 +112,103 @@ public sealed class EnemySpawner : MonoBehaviour
         isSpawning = false;
     }
 
+    private void BuildWeightedPool(int[] waveWeights)
+    {
+        int additionalCount = additionalEnemyPrefabs != null ? additionalEnemyPrefabs.Length : 0;
+        int defaultWeight = GetWaveWeight(waveWeights, 0);
+
+        int activeCount = 0;
+        if (defaultWeight > 0 && enemyPrefab != null) activeCount++;
+        for (int i = 0; i < additionalCount; i++)
+        {
+            if (GetWaveWeight(waveWeights, 1 + i) > 0 && additionalEnemyPrefabs[i].prefab != null)
+                activeCount++;
+        }
+
+        pooledPrefabs = new GameObject[activeCount];
+        pooledWeights = new int[activeCount];
+        totalWeight = 0;
+        int idx = 0;
+
+        if (defaultWeight > 0 && enemyPrefab != null)
+        {
+            pooledPrefabs[idx] = enemyPrefab;
+            pooledWeights[idx] = defaultWeight;
+            totalWeight += defaultWeight;
+            idx++;
+        }
+
+        for (int i = 0; i < additionalCount; i++)
+        {
+            EnemySpawnEntry entry = additionalEnemyPrefabs[i];
+            int w = GetWaveWeight(waveWeights, 1 + i);
+            if (w <= 0 || entry.prefab == null) continue;
+
+            pooledPrefabs[idx] = entry.prefab;
+            pooledWeights[idx] = w;
+            totalWeight += w;
+            idx++;
+        }
+    }
+
+    private int GetWaveWeight(int[] waveWeights, int index)
+    {
+        if (waveWeights == null)
+        {
+            if (index == 0) return 100;
+            int additionalIdx = index - 1;
+            if (additionalIdx >= 0 && additionalIdx < additionalEnemyPrefabs.Length)
+                return Mathf.Max(0, additionalEnemyPrefabs[additionalIdx].weight);
+            return 0;
+        }
+
+        if (index >= waveWeights.Length) return 0;
+        return Mathf.Max(0, waveWeights[index]);
+    }
+
+    private GameObject PickRandomPrefab()
+    {
+        if (pooledPrefabs == null || pooledPrefabs.Length == 0)
+        {
+            return enemyPrefab;
+        }
+
+        int roll = Random.Range(0, totalWeight);
+        int cumulative = 0;
+        for (int i = 0; i < pooledPrefabs.Length; i++)
+        {
+            if (pooledPrefabs[i] == null)
+            {
+                continue;
+            }
+
+            cumulative += pooledWeights[i];
+            if (roll < cumulative)
+            {
+                return pooledPrefabs[i];
+            }
+        }
+
+        return pooledPrefabs[0] != null ? pooledPrefabs[0] : enemyPrefab;
+    }
+
     private void SpawnEnemy()
     {
         Vector2 spawnPosition = FindSpawnPosition();
+        GameObject selectedPrefab = PickRandomPrefab();
+        if (selectedPrefab == null)
+        {
+            return;
+        }
 
-        GameObject enemyObject = Instantiate(enemyPrefab, spawnPosition, Quaternion.identity, enemyParent);
+        GameObject enemyObject = Instantiate(selectedPrefab, spawnPosition, Quaternion.identity, enemyParent);
         Collider2D collider = enemyObject.GetComponent<Collider2D>();
         if (playerCollider != null && collider != null)
         {
             Physics2D.IgnoreCollision(collider, playerCollider, true);
         }
 
-        enemyObject.GetComponent<Enemy>().BeginSession(game, player, playerHealth, pickupSpawner);
+        enemyObject.GetComponent<EnemyBase>().BeginSession(game, player, playerHealth, pickupSpawner);
     }
 
     private Vector2 FindSpawnPosition()

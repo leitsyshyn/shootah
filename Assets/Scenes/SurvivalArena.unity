@@ -612,7 +612,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SurvivalArenaGame
   runConfig: {fileID: 11400000, guid: e87a6ebc0c6994d859a595e2b08fbdaf, type: 2}
-  upgradeTrackConfig: {fileID: 11400000, guid: 46a7f259353e74a4c82590058a02de3f, type: 2}
+  runUpgradeConfig: {fileID: 11400000, guid: 7712dd4c22d384811920589bb43973b4, type: 2}
   cameraFollow: {fileID: 519420033}
   arenaGrid: {fileID: 618134412}
   enemySpawner: {fileID: 859501107}
@@ -623,6 +623,7 @@ MonoBehaviour:
   playerContainer: {fileID: 1400815692}
   projectileContainer: {fileID: 197394990}
   restartActionReference: {fileID: 5840337946087107270, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
+  upgradePopupPrefab: {fileID: 6479871585290026637, guid: 482a7baa373834553b3b84413fc8002c, type: 3}
 --- !u!4 &859501105
 Transform:
   m_ObjectHideFlags: 0
@@ -672,6 +673,13 @@ MonoBehaviour:
   enemyPrefab: {fileID: 5892979577168293959, guid: 9c5906bea4b62457ea24dd0c676dd9f5, type: 3}
   enemyParent: {fileID: 282377086}
   enemyConfig: {fileID: 11400000, guid: eac4db1748f7b4de1ab5eb46619f9c26, type: 2}
+  additionalEnemyPrefabs:
+  - prefab: {fileID: 830109537227977930, guid: 2f3a1f4e684a4a8b81db77d1a75c2ea1, type: 3}
+    weight: 60
+  - prefab: {fileID: 2756710658292277622, guid: c9ad53062c9e4e1a9e251c09d99d4336, type: 3}
+    weight: 50
+  - prefab: {fileID: 2163794420400078268, guid: 76f95fd5dd2b44be90c14f4cc9c70672, type: 3}
+    weight: 40
 --- !u!1 &1254045206
 GameObject:
   m_ObjectHideFlags: 0

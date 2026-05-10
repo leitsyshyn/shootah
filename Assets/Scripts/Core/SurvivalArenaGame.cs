@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -14,7 +15,7 @@ public sealed class SurvivalArenaGame : MonoBehaviour
 
     [Header("Configuration")]
     [SerializeField] private RunConfig runConfig;
-    [SerializeField] private UpgradeTrackConfig upgradeTrackConfig;
+    [SerializeField] private RunUpgradeConfig runUpgradeConfig;
 
     [Header("Composition")]
     [SerializeField] private TopDownCameraFollow cameraFollow;
@@ -28,12 +29,20 @@ public sealed class SurvivalArenaGame : MonoBehaviour
     [SerializeField] private Transform projectileContainer;
     [SerializeField] private InputActionReference restartActionReference;
 
+    [Header("Upgrade Popup")]
+    [SerializeField] private RunUpgradeChoicePopup upgradePopupPrefab;
+
     private PlayerHealth playerHealth;
     private PlayerController2D playerController;
     private PlayerWeapon playerWeapon;
     private Collider2D playerCollider;
     private PrototypeHud hudInstance;
     private InputAction restartAction;
+
+    private int upgradesEarned;
+    private int cumulativeXpSpent;
+    private bool isShowingPopup;
+    private List<string> collectedUpgradeLabels = new();
 
     public RunState CurrentRunState { get; private set; } = RunState.Playing;
     public bool IsRunActive => CurrentRunState == RunState.Playing;
@@ -42,17 +51,17 @@ public sealed class SurvivalArenaGame : MonoBehaviour
     public bool HasLost => CurrentRunState == RunState.Defeat;
     public bool IsDefeated => HasLost;
     public int RunPoints { get; private set; }
-    public int UpgradesEarned { get; private set; }
-    public int PointsPerUpgrade => upgradeTrackConfig.PointsPerUpgrade;
-    public int NextUpgradePointThreshold => (UpgradesEarned + 1) * PointsPerUpgrade;
-    public int CurrentUpgradeProgress => RunPoints - (UpgradesEarned * PointsPerUpgrade);
-    public string LastGrantedUpgradeLabel { get; private set; } = "None";
+    public int UpgradesEarned => upgradesEarned;
+    public int CurrentUpgradeProgress => RunPoints - cumulativeXpSpent;
+    public int NextUpgradePointThreshold => runUpgradeConfig.GetXpForLevel(upgradesEarned);
+    public IReadOnlyList<string> CollectedUpgradeLabels => collectedUpgradeLabels;
     public float TargetSurvivalDuration => runConfig.TargetSurvivalDuration;
     public float ElapsedRunTime { get; private set; }
     public float RemainingRunTime => Mathf.Max(0f, TargetSurvivalDuration - ElapsedRunTime);
     public event Action RunStateChanged;
     public event Action RunPointsChanged;
     public event Action RunProgressionChanged;
+    public event Action UpgradesCollectedChanged;
     public event Action TimerChanged;
 
     private void OnEnable()
@@ -71,8 +80,10 @@ public sealed class SurvivalArenaGame : MonoBehaviour
 
     private void Awake()
     {
+        PersistentProgressionService.Warmup();
         ConfigureRuntimeTiming();
         Transform player = SpawnPlayer();
+        ApplyPersistentProgression();
         BindSceneSystems(player);
         CreateHud();
     }
@@ -89,10 +100,9 @@ public sealed class SurvivalArenaGame : MonoBehaviour
         restartAction = null;
     }
 
-private void Update()
+    private void Update()
     {
         HandleRunTimer();
-        HandleReturnToMainMenuRequested();
     }
 
     private void ConfigureRuntimeTiming()
@@ -127,31 +137,27 @@ private void Update()
         enemySpawner.BeginSession(this, player, playerCollider, playerHealth, pickupSpawner);
     }
 
+    private void ApplyPersistentProgression()
+    {
+        PersistentProgressionService progression = PersistentProgressionService.Instance;
+        playerHealth?.SetPermanentMaxHpBonus(Mathf.RoundToInt(progression.GetPermanentStatBonus(PersistentProgressionStatType.MaxHealth)));
+        playerController?.SetPermanentMoveSpeedBonus(progression.GetPermanentStatBonus(PersistentProgressionStatType.MoveSpeed));
+        if (progression.Config != null && progression.Config.TryGetWeaponDefinition(progression.SelectedWeaponId, out PersistentProgressionConfig.WeaponUnlockDefinition definition))
+        {
+            playerWeapon?.SetWeaponConfig(definition.WeaponConfig);
+        }
+    }
+
     private void CreateHud()
     {
         hudInstance = Instantiate(hudPrefab);
         hudInstance.BindSession(playerHealth, playerWeapon, this);
     }
 
-public void ReturnToMainMenu()
+    public void ReturnToMainMenu()
     {
         SceneManager.LoadScene("MainMenu");
     }
-
-private void HandleReturnToMainMenuRequested()
-    {
-        if (Keyboard.current == null)
-        {
-            return;
-        }
-
-        if (Keyboard.current.escapeKey.wasPressedThisFrame)
-        {
-            ReturnToMainMenu();
-        }
-    }
-
-
 
     public void AddRunPoints(int amount)
     {
@@ -162,45 +168,107 @@ private void HandleReturnToMainMenuRequested()
 
         RunPoints += amount;
         RunPointsChanged?.Invoke();
-        GrantPendingRunUpgrades();
+        TryTriggerUpgradePopup();
         RunProgressionChanged?.Invoke();
     }
 
-    private void GrantPendingRunUpgrades()
+    private void TryTriggerUpgradePopup()
     {
-        while (IsRunActive && RunPoints >= NextUpgradePointThreshold)
-        {
-            if (!upgradeTrackConfig.TryGetUpgrade(UpgradesEarned, out UpgradeTrackConfig.UpgradeEntry nextUpgrade))
-            {
-                break;
-            }
+        if (!IsRunActive) return;
 
-            UpgradesEarned++;
-            GrantRunUpgrade(nextUpgrade);
+        bool earned = false;
+        while (RunPoints >= cumulativeXpSpent + NextUpgradePointThreshold)
+        {
+            cumulativeXpSpent += NextUpgradePointThreshold;
+            upgradesEarned++;
+            earned = true;
+        }
+
+        if (earned && !isShowingPopup)
+        {
+            ShowUpgradeChoicePopup();
         }
     }
 
-    private void GrantRunUpgrade(UpgradeTrackConfig.UpgradeEntry upgradeEntry)
+    private void ShowUpgradeChoicePopup()
     {
-        switch (upgradeEntry.UpgradeType)
+        if (upgradePopupPrefab == null)
+        {
+            Debug.LogError("Upgrade popup prefab is not assigned!", this);
+            return;
+        }
+
+        isShowingPopup = true;
+        playerController?.DisableControls();
+        playerWeapon?.CancelReload();
+        Time.timeScale = 0f;
+
+        RunUpgradeChoicePopup popup = Instantiate(upgradePopupPrefab);
+        popup.Init(this, playerHealth, runUpgradeConfig, OnUpgradeChosen);
+    }
+
+    private void OnUpgradeChosen(RunUpgradeType type)
+    {
+        ApplyRunUpgrade(type);
+        isShowingPopup = false;
+        Time.timeScale = 1f;
+        if (playerController != null && CurrentRunState == RunState.Playing)
+        {
+            playerController.EnableControls();
+        }
+
+        playerWeapon?.TryResumeReload();
+
+        RunProgressionChanged?.Invoke();
+        UpgradesCollectedChanged?.Invoke();
+
+        TryTriggerUpgradePopup();
+    }
+
+    private void ApplyRunUpgrade(RunUpgradeType type)
+    {
+        RunUpgradeConfig.UpgradeDefinition? foundDef = null;
+        var allUpgrades = runUpgradeConfig.Upgrades;
+        for (int i = 0; i < allUpgrades.Count; i++)
+        {
+            if (allUpgrades[i].type == type)
+            {
+                foundDef = allUpgrades[i];
+                break;
+            }
+        }
+
+        if (foundDef == null)
+        {
+            collectedUpgradeLabels.Add("Unknown");
+            return;
+        }
+
+        RunUpgradeConfig.UpgradeDefinition def = foundDef.Value;
+        float val = def.value;
+        collectedUpgradeLabels.Add(def.displayName);
+
+        switch (type)
         {
             case RunUpgradeType.DamageUp:
-                int damageUpgradeAmount = Mathf.Max(0, upgradeEntry.IntValue);
-                playerWeapon?.AddProjectileDamageBonus(damageUpgradeAmount);
-                LastGrantedUpgradeLabel = $"Damage +{damageUpgradeAmount}";
+                int dmg = Mathf.Max(1, Mathf.RoundToInt(val));
+                playerWeapon?.AddProjectileDamageBonus(dmg);
                 break;
             case RunUpgradeType.FireRateUp:
-                float fireRateUpgradeAmount = Mathf.Max(0f, upgradeEntry.Value);
-                playerWeapon?.AddFireRateBonus(fireRateUpgradeAmount);
-                LastGrantedUpgradeLabel = $"Fire Rate +{fireRateUpgradeAmount:0.###}s";
+                playerWeapon?.AddFireRateBonus(val);
                 break;
             case RunUpgradeType.MoveSpeedUp:
-                float moveSpeedUpgradeAmount = Mathf.Max(0f, upgradeEntry.Value);
-                playerController?.AddMoveSpeedBonus(moveSpeedUpgradeAmount);
-                LastGrantedUpgradeLabel = $"Move Speed +{moveSpeedUpgradeAmount:0.##}";
+                playerController?.AddMoveSpeedBonus(val);
                 break;
-            default:
-                LastGrantedUpgradeLabel = "Unknown";
+            case RunUpgradeType.MaxHpUp:
+                int hpBonus = Mathf.RoundToInt(val);
+                playerHealth?.AddRunMaxHpBonus(hpBonus);
+                break;
+            case RunUpgradeType.ReloadSpeedUp:
+                playerWeapon?.AddReloadSpeedBonus(val);
+                break;
+            case RunUpgradeType.ProjectileSpeedUp:
+                playerWeapon?.AddProjectileSpeedBonus(val);
                 break;
         }
     }
@@ -249,11 +317,18 @@ private void HandleReturnToMainMenuRequested()
         }
 
         CurrentRunState = endState;
+
+        if (isShowingPopup)
+        {
+            isShowingPopup = false;
+            Time.timeScale = 1f;
+        }
+
         playerController?.DisableControls();
         playerWeapon?.CancelReload();
         enemySpawner?.StopSpawning();
 
-        foreach (Enemy enemy in FindObjectsByType<Enemy>())
+        foreach (EnemyBase enemy in FindObjectsByType<EnemyBase>())
         {
             enemy.StopMoving();
         }
@@ -261,6 +336,11 @@ private void HandleReturnToMainMenuRequested()
         foreach (Projectile projectile in FindObjectsByType<Projectile>())
         {
             projectile.StopMoving();
+        }
+
+        foreach (EnemyProjectile enemyProjectile in FindObjectsByType<EnemyProjectile>())
+        {
+            enemyProjectile.StopMoving();
         }
 
         TimerChanged?.Invoke();
@@ -272,7 +352,19 @@ private void HandleReturnToMainMenuRequested()
     {
         if (playerHealth != null)
         {
+            playerHealth.Damaged -= OnPlayerDamaged;
             playerHealth.Died -= EnterDefeatState;
         }
+    }
+
+    private void OnPlayerDamaged()
+    {
+        GameEffects.Instance.DamageFlash();
+    }
+
+    private void Start()
+    {
+        playerHealth.Damaged += OnPlayerDamaged;
+        GameEffects.Instance.Warmup();
     }
 }

@@ -13,6 +13,7 @@ public sealed class WeaponConfig : ScriptableObject
     [SerializeField] private float bulletLifetime = 2f;
     [SerializeField] private int pelletCount = 1;
     [SerializeField] private float spreadAngle = 0f;
+    [SerializeField] private int pierceCount;
     [SerializeField] private bool explosive;
     [SerializeField] private float explosionRadius = 0f;
     [SerializeField] private int explosionDamage = 0;
@@ -27,6 +28,7 @@ public sealed class WeaponConfig : ScriptableObject
     public float BulletLifetime => Mathf.Max(0f, bulletLifetime);
     public int PelletCount => Mathf.Max(1, pelletCount);
     public float SpreadAngle => Mathf.Max(0f, spreadAngle);
+    public int PierceCount => Mathf.Max(0, pierceCount);
     public bool IsExplosive => explosive && ExplosionRadius > 0f && ExplosionDamage > 0;
     public float ExplosionRadius => Mathf.Max(0f, explosionRadius);
     public int ExplosionDamage => Mathf.Max(0, explosionDamage);
